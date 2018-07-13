@@ -29,7 +29,7 @@ def tox_testenv_create(venv, action):
         version = "%s.%s" % m.groups()
     else:
         raise exception.UnsupporterInterpreter(
-            'EDM cannot infer version from {!r}'.format(name))
+            'TOX-EDM cannot infer version from {!r}'.format(name))
     if action.activity == 'recreate':
         edm(
             'envs', 'create', action.venvname,
