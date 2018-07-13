@@ -6,13 +6,15 @@ import re
 
 from tox import hookimpl, exception
 
+
 def edm(*parameters, **kw):
-    return subprocess.check_output(['edm'] + list(parameters), **kw)
+    return subprocess.check_output(
+        ['edm'] + list(parameters), shell=True, **kw)
 
 
 def env_exists(envname):
     try:
-        subprocess.check_call(['edm', 'envs', 'exists', envname])
+        subprocess.check_call(['edm', 'envs', 'exists', envname], shell=True)
     except subprocess.CalledProcessError:
         return False
     else:
