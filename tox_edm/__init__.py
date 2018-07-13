@@ -52,6 +52,7 @@ def tox_testenv_install_deps(venv, action):
         edm('install', '-e', name, '-y', *map(str, deps))
     return True
 
+
 @hookimpl
 def tox_runenvreport(venv, action):
     packages = edm(
@@ -60,15 +61,18 @@ def tox_runenvreport(venv, action):
     print packages.splitlines()
     return packages.splitlines()
 
+
 @hookimpl
 def tox_runtest_pre(venv):
     print 'PRE'
     return True
 
+
 @hookimpl
 def tox_runtest_post(venv):
     print 'POST'
     return True
+
 
 @hookimpl
 def tox_runtest(venv, redirect):
@@ -85,8 +89,9 @@ def tox_runtest(venv, redirect):
             message = "commands[%s] | %s" % (
                 i, ' '.join([str(x) for x in argv]))
             action.setactivity("runtests", message)
-            output = edm('run', '-e', action.venvname, '--', *argv, env=env)
+            edm('run', '-e', action.venvname, '--', *argv, env=env)
     return True
+
 
 @hookimpl
 def tox_get_python_executable(envconfig):
