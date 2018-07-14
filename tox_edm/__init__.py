@@ -3,6 +3,7 @@
 import subprocess
 import os
 import re
+import sys
 
 from tox import hookimpl, exception
 
@@ -38,6 +39,10 @@ def tox_testenv_create(venv, action):
         if not env_exists(action.venvname):
             edm('envs', 'create', action.venvname, '--version', version)
     prefix = edm('prefix', '-e', action.venvname)
+    prefix = prefix.strip()
+    # The envbindir will be used to find the environment python
+    # So we have to make sure that it has the right value.
+    action.venv.envconfig.envbindir = prefix
     action.venv.envconfig.whitelist_externals.append(prefix)
     return True
 
@@ -99,6 +104,11 @@ def tox_get_python_executable(envconfig):
         executable = edm(
             'run', '-e', envconfig.envname, '--',
             'python', '-c', "import sys; sys.stdout.write(sys.executable)")
+        executable = executable.strip()
+        if sys.platform.startswith('win'):
+            # Make sure that we always have the right bin directory
+            envconfig.envbindir = os.path.join(
+                os.path.dirname(executable), 'Scripts')
         return os.path.abspath(executable)
     else:
         return None
