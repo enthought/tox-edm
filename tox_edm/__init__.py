@@ -75,13 +75,11 @@ def tox_runenvreport(venv, action):
 
 @hookimpl
 def tox_runtest_pre(venv):
-    print 'PRE'
     return True
 
 
 @hookimpl
 def tox_runtest_post(venv):
-    print 'POST'
     return True
 
 
