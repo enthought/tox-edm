@@ -6,16 +6,12 @@ import re
 import sys
 
 from tox import hookimpl, exception
+from tox.venv import VirtualEnv
 
 
-def edm(*parameters, **kw):
-    return subprocess.check_output(
-        ['edm'] + list(parameters), shell=True, **kw)
-
-
-def env_exists(envname):
+def env_exists(edm, envname):
     try:
-        subprocess.check_call(['edm', 'envs', 'exists', envname], shell=True)
+        subprocess.check_call([str(edm), 'envs', 'exists', envname])
     except subprocess.CalledProcessError:
         return False
     else:
@@ -31,14 +27,21 @@ def tox_testenv_create(venv, action):
     else:
         raise exception.UnsupporterInterpreter(
             'TOX-EDM cannot infer version from {!r}'.format(name))
+    edm = venv.getcommandpath('edm', venv=False)
+    action.venv.envconfig.whitelist_externals.append(
+        os.path.dirname(edm))
     if action.activity == 'recreate':
-        edm(
-            'envs', 'create', action.venvname,
-            '--force', '--version', version)
-    else:
-        if not env_exists(action.venvname):
-            edm('envs', 'create', action.venvname, '--version', version)
-    prefix = edm('prefix', '-e', action.venvname)
+        action.popen([
+            edm, 'envs', 'create', action.venvname,
+            '--force', '--version', version])
+    elif not env_exists(edm, action.venvname):
+        action.popen([
+            edm, 'envs', 'create', action.venvname,
+            '--version', version])
+
+    prefix = action.popen(
+        [edm, 'prefix', '-e', action.venvname],
+        redirect=False, returnout=True)
     prefix = prefix.strip()
     # The envbindir will be used to find the environment python
     # So we have to make sure that it has the right value.
@@ -51,19 +54,23 @@ def tox_testenv_create(venv, action):
 def tox_testenv_install_deps(venv, action):
     deps = venv._getresolvedeps()
     name = action.venvname
-    if deps:
+    if len(deps) > 0:
+        edm = venv.getcommandpath('edm', venv=False)
         depinfo = " ".join(map(str, deps))
         action.setactivity("installdeps", "%s" % depinfo)
-        edm('install', '-e', name, '-y', *map(str, deps))
+        args = [edm, 'install', '-e', name, '-y'] + map(str, deps)
+        action.popen(args)
     return True
 
 
 @hookimpl
 def tox_runenvreport(venv, action):
-    packages = edm(
-        'run', '-e', action.venvname, '--',
-        'pip', 'freeze')
-    return packages.splitlines()
+    edm = venv.getcommandpath('edm', venv=True)
+    output = action.popen([
+        edm, 'run', '-e', action.venvname, '--',
+        'pip', 'freeze'])
+    output = output.split("\n\n")[-1]
+    return output.strip().splitlines()
 
 
 @hookimpl
@@ -89,6 +96,7 @@ def tox_runtest(venv, redirect):
         envconfig.envtmpdir.ensure(dir=1)
         env = venv._getenv(testcommand=True)
         cwd = envconfig.changedir
+        edm = venv.getcommandpath('edm', venv=True)
         # Display PYTHONHASHSEED to assist with reproducibility.
         action.setactivity(
             "runtests", "PYTHONHASHSEED={!r}".format(
@@ -105,7 +113,6 @@ def tox_runtest(venv, redirect):
                     del argv[0]
                 else:
                     argv[0] = argv[0].lstrip("-")
-            edm = venv._venv_lookup('edm')
             argv = [edm, 'run', '-e', action.venvname, '--'] + argv
             try:
                 action.popen(
@@ -131,10 +138,13 @@ def tox_runtest(venv, redirect):
 
 @hookimpl
 def tox_get_python_executable(envconfig):
-    if env_exists(envconfig.envname):
-        executable = edm(
-            'run', '-e', envconfig.envname, '--',
-            'python', '-c', "import sys; sys.stdout.write(sys.executable)")
+    venv = VirtualEnv(envconfig=envconfig)
+    edm = venv.getcommandpath('edm', venv=False)
+    if env_exists(edm, envconfig.envname):
+        executable = subprocess.check_output([
+            str(edm), 'run', '-e', envconfig.envname, '--',
+            'python', '-c',
+            "import sys; sys.stdout.write(sys.executable)"])
         executable = executable.strip()
         if sys.platform.startswith('win'):
             # Make sure that we always have the right bin directory
