@@ -1,5 +1,8 @@
 # Copyright (c) 2018, Ioannis Tziakos
 # All rights reserved.
+#
+# Plugin hooks are inspired by the current implementations found in
+# the tox.venv module and adapted to support edm.
 import subprocess
 import os
 import re
@@ -7,6 +10,10 @@ import sys
 
 from tox import hookimpl, exception
 from tox.venv import VirtualEnv
+
+
+COMMAND_FAILED = (
+    "command failed but result from testenv is ignored\ncmd: {}")
 
 
 def env_exists(edm, envname):
@@ -95,16 +102,15 @@ def tox_runtest(venv, redirect):
         env = venv._getenv(testcommand=True)
         cwd = envconfig.changedir
         edm = venv.getcommandpath('edm', venv=True)
-        # Display PYTHONHASHSEED to assist with reproducibility.
         action.setactivity(
             "runtests", "PYTHONHASHSEED={!r}".format(
                 env.get("PYTHONHASHSEED")))
         for i, argv in enumerate(envconfig.commands):
+
             message = "commands[%s] | %s" % (
                 i, ' '.join([str(x) for x in argv]))
             action.setactivity("runtests", message)
-            # check to see if we need to ignore the return code
-            # if so, we need to alter the command line arguments
+
             ignore_return = argv[0].startswith("-")
             if ignore_return:
                 if argv[0] == "-":
@@ -112,18 +118,17 @@ def tox_runtest(venv, redirect):
                 else:
                     argv[0] = argv[0].lstrip("-")
             argv = [edm, 'run', '-e', action.venvname, '--'] + argv
+
             try:
                 action.popen(
                     argv, cwd=cwd, env=env, redirect=redirect,
                     ignore_ret=ignore_return)
-            except exception.InvocationError as err:
+            except exception.InvocationError as error:
                 if envconfig.ignore_outcome:
-                    msg = "command failed but result from testenv is ignored\ncmd:"
-                    session.report.warning("{} {}".format(msg, err))
+                    session.report.warning(COMMAND_FAILED.format(error))
                     venv.status = "ignored failed command"
                     continue  # keep processing commands
-
-                session.report.error(str(err))
+                session.report.error(str(error))
                 venv.status = "commands failed"
                 if not envconfig.ignore_errors:
                     break  # Don't process remaining commands
