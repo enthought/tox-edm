@@ -89,6 +89,10 @@ def tox_runtest(venv, redirect):
         envconfig.envtmpdir.ensure(dir=1)
         cwd = envconfig.changedir
         env = venv._getenv(testcommand=True)
+        # Display PYTHONHASHSEED to assist with reproducibility.
+        action.setactivity(
+            "runtests", "PYTHONHASHSEED={!r}".format(
+                env.get("PYTHONHASHSEED")))
         for i, argv in enumerate(envconfig.commands):
             message = "commands[%s] | %s" % (
                 i, ' '.join([str(x) for x in argv]))
