@@ -63,7 +63,6 @@ def tox_runenvreport(venv, action):
     packages = edm(
         'run', '-e', action.venvname, '--',
         'pip', 'freeze')
-    print packages.splitlines()
     return packages.splitlines()
 
 
